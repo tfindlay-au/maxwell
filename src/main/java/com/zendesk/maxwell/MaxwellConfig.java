@@ -57,7 +57,7 @@ public class MaxwellConfig extends AbstractConfig {
 	public String kinesisStream;
 	public boolean kinesisMd5Keys;
 
-	public Long inflightRequestTimeout;
+	public Long inflightAckTimeout;
 
 	public String outputFile;
 	public MaxwellOutputConfig outputConfig;
@@ -140,7 +140,7 @@ public class MaxwellConfig extends AbstractConfig {
 		parser.accepts("__separator_3");
 
 		parser.accepts( "producer", "producer type: stdout|file|kafka|kinesis" ).withRequiredArg();
-		parser.accepts( "inflight_request_timeout", "producer message acknowledgement timeout" ).withOptionalArg();
+		parser.accepts( "inflight_ack_timeout", "producer message acknowledgement timeout" ).withOptionalArg();
 		parser.accepts( "output_file", "output file for 'file' producer" ).withRequiredArg();
 
 		parser.accepts( "producer_partition_by", "database|table|primary_key|column, kafka/kinesis producers will partition by this value").withRequiredArg();
@@ -275,7 +275,7 @@ public class MaxwellConfig extends AbstractConfig {
 		this.maxwellMysql.database = this.databaseName;
 
 		this.producerType       = fetchOption("producer", options, properties, "stdout");
-		this.inflightRequestTimeout = fetchLongOption("inflight_request_timeout", options, properties, 0L);
+		this.inflightAckTimeout = fetchLongOption("inflight_ack_timeout", options, properties, 0L);
 		this.bootstrapperType   = fetchOption("bootstrapper", options, properties, "async");
 		this.clientID           = fetchOption("client_id", options, properties, "maxwell");
 		this.replicaServerID    = fetchLongOption("replica_server_id", options, properties, 6379L);

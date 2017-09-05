@@ -36,7 +36,7 @@ public class InflightMessageList {
 	private final LinkedHashMap<Position, InflightMessage> linkedMap;
 	private final MaxwellContext context;
 	private final long capacity;
-	private final long inflightRequestTimeoutMS;
+	private final long inflightAckTimeoutMS;
 	private final double completePercentageThreshold;
 	private volatile boolean isFull;
 	private InflightMessage head;
@@ -47,13 +47,13 @@ public class InflightMessageList {
 
 	public InflightMessageList(MaxwellContext context, long capacity, double completePercentageThreshold) {
 		this.context = context;
-		this.inflightRequestTimeoutMS = context.getConfig().inflightRequestTimeout;
+		this.inflightAckTimeoutMS = context.getConfig().inflightAckTimeout;
 		this.completePercentageThreshold = completePercentageThreshold;
 		this.linkedMap = new LinkedHashMap<>();
 		this.capacity = capacity;
 	}
 
-	public long addMessage(Position p) throws InterruptedException {
+	public void addMessage(Position p) throws InterruptedException {
 		synchronized (this.linkedMap) {
 			while (isFull) {
 				this.linkedMap.wait();
@@ -68,7 +68,6 @@ public class InflightMessageList {
 			} else if (size == 1) {
 				head = m;
 			}
-			return m.sendTimeMS;
 		}
 	}
 
@@ -105,10 +104,10 @@ public class InflightMessageList {
 			// we assume the head will unlikely get acknowledged, hence terminate Maxwell.
 			// This gatekeeper is the last resort since if anything goes wrong,
 			// producer should have raised exceptions earlier than this point when all below conditions are met.
-			if (inflightRequestTimeoutMS > 0 && isFull && head.staleness() > inflightRequestTimeoutMS
+			if (inflightAckTimeoutMS > 0 && isFull && head.staleness() > inflightAckTimeoutMS
 					&& completePercentage() >= completePercentageThreshold) {
 				context.terminate(new IllegalStateException(
-						"Did not receive acknowledgement for the head of the inflight message list for " + inflightRequestTimeoutMS + " ms"));
+						"Did not receive acknowledgement for the head of the inflight message list for " + inflightAckTimeoutMS + " ms"));
 			}
 
 			return completeUntil;

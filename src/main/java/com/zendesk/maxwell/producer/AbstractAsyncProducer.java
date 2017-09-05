@@ -21,15 +21,13 @@ public abstract class AbstractAsyncProducer extends AbstractProducer {
 		private final MaxwellContext context;
 		private final Position position;
 		private final boolean isTXCommit;
-		private final long sendTimeMS;
 		private Long timeToSendMS = null;
 
-		public CallbackCompleter(InflightMessageList inflightMessages, Position position, boolean isTXCommit, MaxwellContext context, long sendTimeMS) {
+		public CallbackCompleter(InflightMessageList inflightMessages, Position position, boolean isTXCommit, MaxwellContext context) {
 			this.inflightMessages = inflightMessages;
 			this.context = context;
 			this.position = position;
 			this.isTXCommit = isTXCommit;
-			this.sendTimeMS = sendTimeMS;
 		}
 
 		public void markCompleted() {
@@ -40,8 +38,6 @@ public abstract class AbstractAsyncProducer extends AbstractProducer {
 					context.setPosition(message.position);
 					timeToSendMS = message.staleness();
 				}
-			} else {
-				timeToSendMS = System.currentTimeMillis() - sendTimeMS;
 			}
 		}
 
@@ -99,13 +95,11 @@ public abstract class AbstractAsyncProducer extends AbstractProducer {
 			return;
 		}
 
-		long sendTimeMS = 0;
 		if(r.isTXCommit()) {
-			sendTimeMS = inflightMessages.addMessage(position);
+			inflightMessages.addMessage(position);
 		}
 
-		CallbackCompleter cc = new CallbackCompleter(inflightMessages, position, r.isTXCommit(), context,
-				sendTimeMS > 0 ? sendTimeMS : System.currentTimeMillis());
+		CallbackCompleter cc = new CallbackCompleter(inflightMessages, position, r.isTXCommit(), context);
 
 		sendAsync(r, cc);
 	}
