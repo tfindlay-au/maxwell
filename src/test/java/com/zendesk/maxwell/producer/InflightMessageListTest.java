@@ -38,13 +38,13 @@ public class InflightMessageListTest {
 
 		Position ret;
 
-		ret = list.completeMessage(p1);
+		ret = list.completeMessage(p1).position;
 		assert(ret.equals(p1));
 
-		ret = list.completeMessage(p2);
+		ret = list.completeMessage(p2).position;
 		assert(ret.equals(p2));
 
-		ret = list.completeMessage(p3);
+		ret = list.completeMessage(p3).position;
 		assert(ret.equals(p3));
 
 		assert(list.size() == 0);
@@ -55,14 +55,15 @@ public class InflightMessageListTest {
 		setupWithInflightRequestTimeout(0);
 
 		Position ret;
+		InflightMessageList.InflightMessage m;
 
-		ret = list.completeMessage(p3);
-		assert(ret == null);
+		m = list.completeMessage(p3);
+		assert(m == null);
 
-		ret = list.completeMessage(p2);
-		assert(ret == null);
+		m = list.completeMessage(p2);
+		assert(m == null);
 
-		ret = list.completeMessage(p1);
+		ret = list.completeMessage(p1).position;
 		assertEquals(p3, ret);
 	}
 

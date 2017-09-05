@@ -53,7 +53,7 @@ public class InflightMessageList {
 		this.capacity = capacity;
 	}
 
-	public void addMessage(Position p) throws InterruptedException {
+	public long addMessage(Position p) throws InterruptedException {
 		synchronized (this.linkedMap) {
 			while (isFull) {
 				this.linkedMap.wait();
@@ -68,18 +68,19 @@ public class InflightMessageList {
 			} else if (size == 1) {
 				head = m;
 			}
+			return m.sendTimeMS;
 		}
 	}
 
 	/* returns the position that stuff is complete up to, or null if there were no changes */
-	public Position completeMessage(Position p) {
+	public InflightMessage completeMessage(Position p) {
 		synchronized (this.linkedMap) {
 			InflightMessage m = this.linkedMap.get(p);
 			assert(m != null);
 
 			m.isComplete = true;
 
-			Position completeUntil = null;
+			InflightMessage completeUntil = null;
 			if (p.equals(head.position)) {
 				Iterator<InflightMessage> iterator = this.linkedMap.values().iterator();
 
@@ -90,7 +91,7 @@ public class InflightMessageList {
 						break;
 					}
 
-					completeUntil = msg.position;
+					completeUntil = msg;
 					iterator.remove();
 				}
 

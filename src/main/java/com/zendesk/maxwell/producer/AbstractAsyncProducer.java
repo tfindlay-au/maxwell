@@ -22,30 +22,31 @@ public abstract class AbstractAsyncProducer extends AbstractProducer {
 		private final Position position;
 		private final boolean isTXCommit;
 		private final long sendTimeMS;
-		private Long completeTimeMS;
+		private Long timeToSendMS = null;
 
-		public CallbackCompleter(InflightMessageList inflightMessages, Position position, boolean isTXCommit, MaxwellContext context) {
+		public CallbackCompleter(InflightMessageList inflightMessages, Position position, boolean isTXCommit, MaxwellContext context, long sendTimeMS) {
 			this.inflightMessages = inflightMessages;
 			this.context = context;
 			this.position = position;
 			this.isTXCommit = isTXCommit;
-			this.sendTimeMS = System.currentTimeMillis();
+			this.sendTimeMS = sendTimeMS;
 		}
 
 		public void markCompleted() {
 			if(isTXCommit) {
-				Position newPosition = inflightMessages.completeMessage(position);
+				InflightMessageList.InflightMessage message = inflightMessages.completeMessage(position);
 
-				if(newPosition != null) {
-					context.setPosition(newPosition);
+				if (message != null) {
+					context.setPosition(message.position);
+					timeToSendMS = message.staleness();
 				}
+			} else {
+				timeToSendMS = System.currentTimeMillis() - sendTimeMS;
 			}
-			completeTimeMS = System.currentTimeMillis();
 		}
 
 		public Long timeToSendMS() {
-			if ( completeTimeMS == null ) return null;
-			return completeTimeMS - sendTimeMS;
+			return timeToSendMS;
 		}
 	}
 
@@ -91,18 +92,20 @@ public abstract class AbstractAsyncProducer extends AbstractProducer {
 		if(!r.shouldOutput(outputConfig)) {
 			inflightMessages.addMessage(position);
 
-			Position completed = inflightMessages.completeMessage(position);
+			InflightMessageList.InflightMessage completed = inflightMessages.completeMessage(position);
 			if(completed != null) {
-				context.setPosition(completed);
+				context.setPosition(completed.position);
 			}
 			return;
 		}
 
+		long sendTimeMS = 0;
 		if(r.isTXCommit()) {
-			inflightMessages.addMessage(position);
+			sendTimeMS = inflightMessages.addMessage(position);
 		}
 
-		CallbackCompleter cc = new CallbackCompleter(inflightMessages, position, r.isTXCommit(), context);
+		CallbackCompleter cc = new CallbackCompleter(inflightMessages, position, r.isTXCommit(), context,
+				sendTimeMS > 0 ? sendTimeMS : System.currentTimeMillis());
 
 		sendAsync(r, cc);
 	}
