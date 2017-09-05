@@ -1,38 +1,42 @@
 package com.zendesk.maxwell.producer;
 
+import com.zendesk.maxwell.MaxwellConfig;
+import com.zendesk.maxwell.MaxwellContext;
 import com.zendesk.maxwell.replication.BinlogPosition;
 import com.zendesk.maxwell.replication.Position;
-import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.junit.MockitoJUnitRunner;
 
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
 
 /**
  * Created by ben on 5/25/16.
  */
+@RunWith(MockitoJUnitRunner.class)
 public class InflightMessageListTest {
-	static int capacity = 3;
-	static Position p1 = new Position(BinlogPosition.at(1, "f"), 0L);
-	static Position p2 = new Position(BinlogPosition.at(2, "f"), 0L);
-	static Position p3 = new Position(BinlogPosition.at(3, "f"), 0L);
-	static Position p4 = new Position(BinlogPosition.at(4, "f"), 0L);
-	InflightMessageList list;
-
-	@Before
-	public void setupBefore() throws InterruptedException {
-		list = new InflightMessageList(capacity);
-		list.addMessage(p1);
-		list.addMessage(p2);
-		list.addMessage(p3);
-	}
+	private static int capacity = 3;
+	private static Position p1 = new Position(BinlogPosition.at(1, "f"), 0L);
+	private static Position p2 = new Position(BinlogPosition.at(2, "f"), 0L);
+	private static Position p3 = new Position(BinlogPosition.at(3, "f"), 0L);
+	private static Position p4 = new Position(BinlogPosition.at(4, "f"), 0L);
+	private InflightMessageList list;
+	private MaxwellContext context;
+	@Captor
+	private ArgumentCaptor<RuntimeException> captor;
 
 	@Test
-	public void testInOrderCompletion() {
-		Position ret;
+	public void testInOrderCompletion() throws InterruptedException {
+		setupWithInflightRequestTimeout(0);
 
+		Position ret;
 
 		ret = list.completeMessage(p1);
 		assert(ret.equals(p1));
@@ -47,7 +51,9 @@ public class InflightMessageListTest {
 	}
 
 	@Test
-	public void testOutOfOrderComplete() {
+	public void testOutOfOrderComplete() throws InterruptedException {
+		setupWithInflightRequestTimeout(0);
+
 		Position ret;
 
 		ret = list.completeMessage(p3);
@@ -61,7 +67,38 @@ public class InflightMessageListTest {
 	}
 
 	@Test
+	public void testMaxwellWillTerminateWhenHeadOfInflightMsgListIsStuckAndCheckTurnedOn() throws InterruptedException {
+		// Given
+		long inflightRequestTimeout = 100;
+		setupWithInflightRequestTimeout(inflightRequestTimeout);
+		list.completeMessage(p2);
+		Thread.sleep(inflightRequestTimeout + 5);
+
+		// When
+		list.completeMessage(p3);
+
+		// Then
+		verify(context).terminate(captor.capture());
+		assertThat(captor.getValue().getMessage(), is("Did not receive acknowledgement for the head of the inflight message list for " + inflightRequestTimeout + " ms"));
+	}
+
+	@Test
+	public void testMaxwellWillNotTerminateWhenHeadOfInflightMsgListIsStuckAndCheckTurnedOff() throws InterruptedException {
+		// Given
+		setupWithInflightRequestTimeout(0);
+		list.completeMessage(p2);
+
+		// When
+		list.completeMessage(p3);
+
+		// Then
+		verify(context, never()).terminate(any(RuntimeException.class));
+	}
+
+	@Test
 	public void testAddMessageWillWaitWhenCapacityIsFull() throws InterruptedException {
+		setupWithInflightRequestTimeout(0);
+
 		AddMessage addMessage = new AddMessage();
 		Thread add = new Thread(addMessage);
 		add.start();
@@ -91,5 +128,17 @@ public class InflightMessageListTest {
 			}
 			end = System.currentTimeMillis();
 		}
+	}
+
+	private void setupWithInflightRequestTimeout(long timeout) throws InterruptedException {
+		context = mock(MaxwellContext.class);
+		MaxwellConfig config = new MaxwellConfig();
+		config.inflightRequestTimeout = timeout;
+		when(context.getConfig()).thenReturn(config);
+		double completePercentageThreshold = 0.1;
+		list = new InflightMessageList(context, capacity, completePercentageThreshold);
+		list.addMessage(p1);
+		list.addMessage(p2);
+		list.addMessage(p3);
 	}
 }
