@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 
 public class DiagnosticHealthCheck extends HttpServlet {
 
-	private static final String CONTENT_TYPE = "text/plain";
+	private static final String CONTENT_TYPE = "text/json";
 	private static final String CACHE_CONTROL = "Cache-Control";
 	private static final String NO_CACHE = "must-revalidate,no-cache,no-store";
 	private final MaxwellDiagnosticContext diagnosticContext;
