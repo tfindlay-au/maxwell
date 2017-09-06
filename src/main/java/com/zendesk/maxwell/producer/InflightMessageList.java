@@ -36,7 +36,7 @@ public class InflightMessageList {
 	private final LinkedHashMap<Position, InflightMessage> linkedMap;
 	private final MaxwellContext context;
 	private final long capacity;
-	private final long inflightAckTimeoutMS;
+	private final long producerAckTimeoutMS;
 	private final double completePercentageThreshold;
 	private volatile boolean isFull;
 	private InflightMessage head;
@@ -47,7 +47,7 @@ public class InflightMessageList {
 
 	public InflightMessageList(MaxwellContext context, long capacity, double completePercentageThreshold) {
 		this.context = context;
-		this.inflightAckTimeoutMS = context.getConfig().inflightAckTimeout;
+		this.producerAckTimeoutMS = context.getConfig().producerAckTimeout;
 		this.completePercentageThreshold = completePercentageThreshold;
 		this.linkedMap = new LinkedHashMap<>();
 		this.capacity = capacity;
@@ -104,10 +104,10 @@ public class InflightMessageList {
 			// we assume the head will unlikely get acknowledged, hence terminate Maxwell.
 			// This gatekeeper is the last resort since if anything goes wrong,
 			// producer should have raised exceptions earlier than this point when all below conditions are met.
-			if (inflightAckTimeoutMS > 0 && isFull && head.staleness() > inflightAckTimeoutMS
+			if (producerAckTimeoutMS > 0 && isFull && head.staleness() > producerAckTimeoutMS
 					&& completePercentage() >= completePercentageThreshold) {
 				context.terminate(new IllegalStateException(
-						"Did not receive acknowledgement for the head of the inflight message list for " + inflightAckTimeoutMS + " ms"));
+						"Did not receive acknowledgement for the head of the inflight message list for " + producerAckTimeoutMS + " ms"));
 			}
 
 			return completeUntil;
@@ -124,6 +124,6 @@ public class InflightMessageList {
 			if (m.isComplete)
 				completed ++;
 		}
-		return ((double) completed) / ((double) linkedMap.size());
+		return completed / ((double) linkedMap.size());
 	}
 }

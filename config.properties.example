@@ -19,7 +19,7 @@ password=maxwell
 # where producer is either kafka or kinesis
 # maxwell may be terminated if the timeout has expired, when majority of the COMMIT row messages have been acknowledged
 # set it to 0 to turn off this check
-#inflight_ack_timeout=120000 # default 0
+#producer_ack_timeout=120000 # default 0
 
 # set the log level.  note that you can configure things further in log4j2.xml
 #log_level=DEBUG # [DEBUG, INFO, WARN, ERROR]
