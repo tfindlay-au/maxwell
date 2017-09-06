@@ -81,7 +81,7 @@ public class BinlogConnectorDiagnostic implements MaxwellDiagnostic {
 		public void update(Observable o, Object arg) {
 			long heartbeatReadTime = clock.millis();
 			long latestHeartbeat = (long) arg;
-			latency.complete( heartbeatReadTime - latestHeartbeat);
+			latency.complete(heartbeatReadTime - latestHeartbeat);
 		}
 
 		void fail(Exception e) {
